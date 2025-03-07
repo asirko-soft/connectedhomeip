@@ -74,12 +74,27 @@ from chip.tracing import TracingContext
 from mobly import asserts, base_test, signals, utils
 from mobly.config_parser import ENV_MOBLY_LOGPATH, TestRunConfig
 from mobly.test_runner import TestRunner
+from matter_yamltests.hooks import TestRunnerHooks as YamlTestRunnerHooks
+
+# Import test runner components from runner.py
+# This is for backward compatibility
+from chip.testing.runner import (
+    TestRunnerHooks as RunnerTestRunnerHooks,
+    InternalTestRunnerHooks,
+    run_tests, run_tests_no_exit,
+    # Classes moved from matter_testing.py to runner.py
+    ProblemLocation, ProblemNotice, ProblemSeverity,
+    AttributePathLocation, ClusterMapper, ClusterPathLocation,
+    EventPathLocation, CommandPathLocation, FeaturePathLocation,
+    DeviceTypePathLocation, UnknownProblemLocation,
+    TestStep, TestInfo
+)
 
 try:
     from matter_yamltests.hooks import TestRunnerHooks
 except ImportError:
-    class TestRunnerHooks:
-        pass
+    # Use the TestRunnerHooks from runner.py
+    TestRunnerHooks = RunnerTestRunnerHooks
 
 
 # TODO: Add utility to commission a device if needed
@@ -498,367 +513,6 @@ class ClusterAttributeChangeAccumulator:
         return
 
 
-class InternalTestRunnerHooks(TestRunnerHooks):
-
-    def start(self, count: int):
-        logging.info(f'Starting test set, running {count} tests')
-
-    def stop(self, duration: int):
-        logging.info(f'Finished test set, ran for {duration}ms')
-
-    def test_start(self, filename: str, name: str, count: int, steps: list[str] = []):
-        logging.info(f'Starting test from {filename}: {name} - {count} steps')
-
-    def test_stop(self, exception: Exception, duration: int):
-        logging.info(f'Finished test in {duration}ms')
-
-    def step_skipped(self, name: str, expression: str):
-        # TODO: Do we really need the expression as a string? We can evaluate this in code very easily
-        logging.info(f'\t\t**** Skipping: {name}')
-
-    def step_start(self, name: str):
-        # The way I'm calling this, the name is already includes the step number, but it seems like it might be good to separate these
-        logging.info(f'\t\t***** Test Step {name}')
-
-    def step_success(self, logger, logs, duration: int, request):
-        pass
-
-    def step_failure(self, logger, logs, duration: int, request, received):
-        # TODO: there's supposed to be some kind of error message here, but I have no idea where it's meant to come from in this API
-        logging.info('\t\t***** Test Failure : ')
-
-    def step_unknown(self):
-        """
-        This method is called when the result of running a step is unknown. For example during a dry-run.
-        """
-        pass
-
-    def show_prompt(self,
-                    msg: str,
-                    placeholder: Optional[str] = None,
-                    default_value: Optional[str] = None) -> None:
-        pass
-
-    def test_skipped(self, filename: str, name: str):
-        logging.info(f"Skipping test from {filename}: {name}")
-
-
-@dataclass
-class MatterTestConfig:
-    storage_path: pathlib.Path = pathlib.Path(".")
-    logs_path: pathlib.Path = pathlib.Path(".")
-    paa_trust_store_path: Optional[pathlib.Path] = None
-    ble_interface_id: Optional[int] = None
-    commission_only: bool = False
-
-    admin_vendor_id: int = _DEFAULT_ADMIN_VENDOR_ID
-    case_admin_subject: Optional[int] = None
-    global_test_params: dict = field(default_factory=dict)
-    # List of explicit tests to run by name. If empty, all tests will run
-    tests: List[str] = field(default_factory=list)
-    timeout: typing.Union[int, None] = None
-    endpoint: typing.Union[int, None] = 0
-    app_pid: int = 0
-    fail_on_skipped_tests: bool = False
-
-    commissioning_method: Optional[str] = None
-    in_test_commissioning_method: Optional[str] = None
-    discriminators: List[int] = field(default_factory=list)
-    setup_passcodes: List[int] = field(default_factory=list)
-    commissionee_ip_address_just_for_testing: Optional[str] = None
-    # By default, we start with maximized cert chains, as required for RR-1.1.
-    # This allows cert tests to be run without re-commissioning for RR-1.1.
-    maximize_cert_chains: bool = True
-
-    # By default, let's set validity to 10 years
-    certificate_validity_period = int(timedelta(days=10*365).total_seconds())
-
-    qr_code_content: List[str] = field(default_factory=list)
-    manual_code: List[str] = field(default_factory=list)
-
-    wifi_ssid: Optional[str] = None
-    wifi_passphrase: Optional[str] = None
-    thread_operational_dataset: Optional[str] = None
-
-    pics: dict[bool, str] = field(default_factory=dict)
-
-    # Node ID for basic DUT
-    dut_node_ids: List[int] = field(default_factory=list)
-    # Node ID to use for controller/commissioner
-    controller_node_id: int = _DEFAULT_CONTROLLER_NODE_ID
-    # CAT Tags for default controller/commissioner
-    # By default, we commission with CAT tags specified for RR-1.1
-    # so the cert tests can be run without re-commissioning the device
-    # for this one test. This can be overwritten from the command line
-    controller_cat_tags: List[int] = field(default_factory=lambda: [0x0001_0001])
-
-    # Fabric ID which to use
-    fabric_id: int = 1
-
-    # "Alpha" by default
-    root_of_trust_index: int = _DEFAULT_TRUST_ROOT_INDEX
-
-    # If this is set, we will reuse root of trust keys at that location
-    chip_tool_credentials_path: Optional[pathlib.Path] = None
-
-    trace_to: List[str] = field(default_factory=list)
-
-    # Accepted Terms and Conditions if used
-    tc_version_to_simulate: int = None
-    tc_user_response_to_simulate: int = None
-    # path to device attestation revocation set json file
-    dac_revocation_set_path: Optional[pathlib.Path] = None
-
-
-class ClusterMapper:
-    """Describe clusters/attributes using schema names."""
-
-    def __init__(self, legacy_cluster_mapping) -> None:
-        self._mapping = legacy_cluster_mapping
-
-    def get_cluster_string(self, cluster_id: int) -> str:
-        mapping = self._mapping._CLUSTER_ID_DICT.get(cluster_id, None)
-        if not mapping:
-            return f"Cluster Unknown ({cluster_id}, 0x{cluster_id:08X})"
-        else:
-            name = mapping["clusterName"]
-            return f"Cluster {name} ({cluster_id}, 0x{cluster_id:04X})"
-
-    def get_attribute_string(self, cluster_id: int, attribute_id) -> str:
-        global_attrs = [item.value for item in GlobalAttributeIds]
-        if attribute_id in global_attrs:
-            return f"Attribute {GlobalAttributeIds(attribute_id).to_name()} {attribute_id}, 0x{attribute_id:04X}"
-        mapping = self._mapping._CLUSTER_ID_DICT.get(cluster_id, None)
-        if not mapping:
-            return f"Attribute Unknown ({attribute_id}, 0x{attribute_id:08X})"
-        else:
-            attribute_mapping = mapping["attributes"].get(attribute_id, None)
-
-            if not attribute_mapping:
-                return f"Attribute Unknown ({attribute_id}, 0x{attribute_id:08X})"
-            else:
-                attribute_name = attribute_mapping["attributeName"]
-                return f"Attribute {attribute_name} ({attribute_id}, 0x{attribute_id:04X})"
-
-
-@dataclass
-class ClusterPathLocation:
-    endpoint_id: int
-    cluster_id: int
-
-    def __str__(self):
-        return (f'\n       Endpoint: {self.endpoint_id},'
-                f'\n       Cluster:  {cluster_id_str(self.cluster_id)}')
-
-
-@dataclass
-class AttributePathLocation(ClusterPathLocation):
-    cluster_id: Optional[int] = None
-    attribute_id: Optional[int] = None
-
-    def as_cluster_string(self, mapper: ClusterMapper):
-        desc = f"Endpoint {self.endpoint_id}"
-        if self.cluster_id is not None:
-            desc += f", {mapper.get_cluster_string(self.cluster_id)}"
-        return desc
-
-    def as_string(self, mapper: ClusterMapper):
-        desc = self.as_cluster_string(mapper)
-        if self.cluster_id is not None and self.attribute_id is not None:
-            desc += f", {mapper.get_attribute_string(self.cluster_id, self.attribute_id)}"
-
-        return desc
-
-    def __str__(self):
-        return (f'{super().__str__()}'
-                f'\n      Attribute:{id_str(self.attribute_id)}')
-
-
-@dataclass
-class EventPathLocation(ClusterPathLocation):
-    event_id: int
-
-    def __str__(self):
-        return (f'{super().__str__()}'
-                f'\n       Event:    {id_str(self.event_id)}')
-
-
-@dataclass
-class CommandPathLocation(ClusterPathLocation):
-    command_id: int
-
-    def __str__(self):
-        return (f'{super().__str__()}'
-                f'\n       Command:  {id_str(self.command_id)}')
-
-
-@dataclass
-class FeaturePathLocation(ClusterPathLocation):
-    feature_code: str
-
-    def __str__(self):
-        return (f'{super().__str__()}'
-                f'\n       Feature:  {self.feature_code}')
-
-
-@dataclass
-class DeviceTypePathLocation:
-    device_type_id: int
-    cluster_id: Optional[int] = None
-
-    def __str__(self):
-        msg = f'\n       DeviceType: {self.device_type_id}'
-        if self.cluster_id:
-            msg += f'\n       ClusterID: {self.cluster_id}'
-        return msg
-
-
-class UnknownProblemLocation:
-    def __str__(self):
-        return '\n      Unknown Locations - see message for more details'
-
-
-ProblemLocation = typing.Union[ClusterPathLocation, DeviceTypePathLocation, UnknownProblemLocation]
-
-# ProblemSeverity is not using StrEnum, but rather Enum, since StrEnum only
-# appeared in 3.11. To make it JSON serializable easily, multiple inheritance
-# from `str` is used. See https://stackoverflow.com/a/51976841.
-
-
-class ProblemSeverity(str, Enum):
-    NOTE = "NOTE"
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-
-
-@dataclass
-class ProblemNotice:
-    test_name: str
-    location: ProblemLocation
-    severity: ProblemSeverity
-    problem: str
-    spec_location: str = ""
-
-    def __str__(self):
-        return (f'\nProblem: {str(self.severity)}'
-                f'\n    test_name: {self.test_name}'
-                f'\n    location: {str(self.location)}'
-                f'\n    problem: {self.problem}'
-                f'\n    spec_location: {self.spec_location}\n')
-
-
-@dataclass
-class SetupParameters:
-    passcode: int
-    vendor_id: int = 0xFFF1
-    product_id: int = 0x8001
-    discriminator: int = 3840
-    custom_flow: int = 0
-    capabilities: int = 0b0100
-    version: int = 0
-
-    @property
-    def qr_code(self):
-        return SetupPayload().GenerateQrCode(self.passcode, self.vendor_id, self.product_id, self.discriminator,
-                                             self.custom_flow, self.capabilities, self.version)
-
-    @property
-    def manual_code(self):
-        return SetupPayload().GenerateManualPairingCode(self.passcode, self.vendor_id, self.product_id, self.discriminator,
-                                                        self.custom_flow, self.capabilities, self.version)
-
-
-class MatterStackState:
-    def __init__(self, config: MatterTestConfig):
-        self._logger = logger
-        self._config = config
-
-        if not hasattr(builtins, "chipStack"):
-            chip.native.Init(bluetoothAdapter=config.ble_interface_id)
-            if config.storage_path is None:
-                raise ValueError("Must have configured a MatterTestConfig.storage_path")
-            self._init_stack(already_initialized=False, persistentStoragePath=config.storage_path)
-            self._we_initialized_the_stack = True
-        else:
-            self._init_stack(already_initialized=True)
-            self._we_initialized_the_stack = False
-
-    def _init_stack(self, already_initialized: bool, **kwargs):
-        if already_initialized:
-            self._chip_stack = builtins.chipStack
-            self._logger.warn(
-                "Re-using existing ChipStack object found in current interpreter: "
-                "storage path %s will be ignored!" % (self._config.storage_path)
-            )
-            # TODO: Warn that storage will not follow what we set in config
-        else:
-            self._chip_stack = ChipStack(**kwargs)
-            builtins.chipStack = self._chip_stack
-
-        chip.logging.RedirectToPythonLogging()
-
-        self._storage = self._chip_stack.GetStorageManager()
-        self._certificate_authority_manager = chip.CertificateAuthority.CertificateAuthorityManager(chipStack=self._chip_stack)
-        self._certificate_authority_manager.LoadAuthoritiesFromStorage()
-
-        if (len(self._certificate_authority_manager.activeCaList) == 0):
-            self._logger.warn(
-                "Didn't find any CertificateAuthorities in storage -- creating a new CertificateAuthority + FabricAdmin...")
-            ca = self._certificate_authority_manager.NewCertificateAuthority(caIndex=self._config.root_of_trust_index)
-            ca.maximizeCertChains = self._config.maximize_cert_chains
-            ca.certificateValidityPeriodSec = self._config.certificate_validity_period
-            ca.NewFabricAdmin(vendorId=0xFFF1, fabricId=self._config.fabric_id)
-        elif (len(self._certificate_authority_manager.activeCaList[0].adminList) == 0):
-            self._logger.warn("Didn't find any FabricAdmins in storage -- creating a new one...")
-            self._certificate_authority_manager.activeCaList[0].NewFabricAdmin(vendorId=0xFFF1, fabricId=self._config.fabric_id)
-
-    # TODO: support getting access to chip-tool credentials issuer's data
-
-    def Shutdown(self):
-        if self._we_initialized_the_stack:
-            # Unfortunately, all the below are singleton and possibly
-            # managed elsewhere so we have to be careful not to touch unless
-            # we initialized ourselves.
-            self._certificate_authority_manager.Shutdown()
-            global_chip_stack = builtins.chipStack
-            global_chip_stack.Shutdown()
-
-    @property
-    def certificate_authorities(self):
-        return self._certificate_authority_manager.activeCaList
-
-    @property
-    def certificate_authority_manager(self):
-        return self._certificate_authority_manager
-
-    @property
-    def storage(self) -> PersistentStorage:
-        return self._storage
-
-    @property
-    def stack(self) -> ChipStack:
-        return builtins.chipStack
-
-
-@dataclass
-class TestStep:
-    test_plan_number: typing.Union[int, str]
-    description: str
-    expectation: str = ""
-    is_commissioning: bool = False
-
-    def __str__(self):
-        return f'{self.test_plan_number}: {self.description}\tExpected outcome: {self.expectation}'
-
-
-@dataclass
-class TestInfo:
-    function: str
-    desc: str
-    steps: list[TestStep]
-    pics: list[str]
-
-
 class MatterBaseTest(base_test.BaseTestClass):
     def __init__(self, *args):
         super().__init__(*args)
@@ -1001,7 +655,7 @@ class MatterBaseTest(base_test.BaseTestClass):
         return unstash_globally(self.user_params.get("hooks"))
 
     @property
-    def matter_test_config(self) -> MatterTestConfig:
+    def matter_test_config(self) -> "MatterTestConfig":
         return unstash_globally(self.user_params.get("matter_test_config"))
 
     @property
@@ -1009,7 +663,7 @@ class MatterBaseTest(base_test.BaseTestClass):
         return unstash_globally(self.user_params.get("default_controller"))
 
     @property
-    def matter_stack(self) -> MatterStackState:
+    def matter_stack(self) -> "MatterStackState":
         return unstash_globally(self.user_params.get("matter_stack"))
 
     @property
@@ -1587,7 +1241,7 @@ class MatterBaseTest(base_test.BaseTestClass):
             return None
 
 
-def generate_mobly_test_config(matter_test_config: MatterTestConfig):
+def generate_mobly_test_config(matter_test_config: "MatterTestConfig"):
     test_run_config = TestRunConfig()
     # We use a default name. We don't use Mobly YAML configs, so that we can be
     # freestanding without relying
@@ -1744,7 +1398,7 @@ def root_index(s: str) -> int:
         return root_index
 
 
-def populate_commissioning_args(args: argparse.Namespace, config: MatterTestConfig) -> bool:
+def populate_commissioning_args(args: argparse.Namespace, config: "MatterTestConfig") -> bool:
     config.root_of_trust_index = args.root_index
     # Follow root of trust index if ID not provided to have same behavior as legacy
     # chip-tool that fabricID == commissioner_name == root of trust index
@@ -1844,7 +1498,7 @@ def populate_commissioning_args(args: argparse.Namespace, config: MatterTestConf
     return True
 
 
-def convert_args_to_matter_config(args: argparse.Namespace) -> MatterTestConfig:
+def convert_args_to_matter_config(args: argparse.Namespace) -> "MatterTestConfig":
     config = MatterTestConfig()
 
     # Populate commissioning config if present, exiting on error
@@ -1860,7 +1514,7 @@ def convert_args_to_matter_config(args: argparse.Namespace) -> MatterTestConfig:
     config.timeout = args.timeout  # This can be none, we pull the default from the test if it's unspecified
     config.endpoint = args.endpoint  # This can be None, the get_endpoint function allows the tests to supply a default
     config.app_pid = 0 if args.app_pid is None else args.app_pid
-    config.fail_on_skipped_tests = args.fail_on_skipped
+    config.fail_on_skipped = args.fail_on_skipped
 
     config.controller_node_id = args.controller_node_id
     config.trace_to = args.trace_to
@@ -1886,7 +1540,7 @@ def convert_args_to_matter_config(args: argparse.Namespace) -> MatterTestConfig:
     return config
 
 
-def parse_matter_test_args(argv: Optional[List[str]] = None) -> MatterTestConfig:
+def parse_matter_test_args(argv: Optional[List[str]] = None) -> "MatterTestConfig":
     parser = argparse.ArgumentParser(description='Matter standalone Python test')
 
     basic_group = parser.add_argument_group(title="Basic arguments", description="Overall test execution arguments")
@@ -2298,7 +1952,7 @@ def default_matter_test_main():
     run_tests(test_class, matter_test_config, hooks)
 
 
-def get_test_info(test_class: MatterBaseTest, matter_test_config: MatterTestConfig) -> list[TestInfo]:
+def get_test_info(test_class: MatterBaseTest, matter_test_config: "MatterTestConfig") -> list["TestInfo"]:
     test_config = generate_mobly_test_config(matter_test_config)
     base = test_class(test_config)
 
@@ -2314,126 +1968,46 @@ def get_test_info(test_class: MatterBaseTest, matter_test_config: MatterTestConf
     return info
 
 
-def run_tests_no_exit(test_class: MatterBaseTest, matter_test_config: MatterTestConfig,
-                      event_loop: asyncio.AbstractEventLoop, hooks: TestRunnerHooks,
-                      default_controller=None, external_stack=None) -> bool:
-
-    # NOTE: It's not possible to pass event loop via Mobly TestRunConfig user params, because the
-    #       Mobly deep copies the user params before passing them to the test class and the event
-    #       loop is not serializable. So, we are setting the event loop as a test class member.
-    CommissionDeviceTest.event_loop = event_loop
-    test_class.event_loop = event_loop
-
-    get_test_info(test_class, matter_test_config)
-
-    # Load test config file.
-    test_config = generate_mobly_test_config(matter_test_config)
-
-    # Parse test specifiers if exist.
-    tests = None
-    if len(matter_test_config.tests) > 0:
-        tests = matter_test_config.tests
-
-    if external_stack:
-        stack = external_stack
-    else:
-        stack = MatterStackState(matter_test_config)
-
-    with TracingContext() as tracing_ctx:
-        for destination in matter_test_config.trace_to:
-            tracing_ctx.StartFromString(destination)
-
-        test_config.user_params["matter_stack"] = stash_globally(stack)
-
-        # TODO: Steer to right FabricAdmin!
-        # TODO: If CASE Admin Subject is a CAT tag range, then make sure to issue NOC with that CAT tag
-        if not default_controller:
-            default_controller = stack.certificate_authorities[0].adminList[0].NewController(
-                nodeId=matter_test_config.controller_node_id,
-                paaTrustStorePath=str(matter_test_config.paa_trust_store_path),
-                catTags=matter_test_config.controller_cat_tags,
-                dacRevocationSetPath=str(matter_test_config.dac_revocation_set_path),
-            )
-        test_config.user_params["default_controller"] = stash_globally(default_controller)
-
-        test_config.user_params["matter_test_config"] = stash_globally(matter_test_config)
-        test_config.user_params["hooks"] = stash_globally(hooks)
-
-        # Execute the test class with the config
-        ok = True
-
-        test_config.user_params["certificate_authority_manager"] = stash_globally(stack.certificate_authority_manager)
-
-        # Execute the test class with the config
-        ok = True
-
-        runner = TestRunner(log_dir=test_config.log_path,
-                            testbed_name=test_config.testbed_name)
-
-        with runner.mobly_logger():
-            if matter_test_config.commissioning_method is not None:
-                runner.add_test_class(test_config, CommissionDeviceTest, None)
-
-            # Add the tests selected unless we have a commission-only request
-            if not matter_test_config.commission_only:
-                runner.add_test_class(test_config, test_class, tests)
-
-            if hooks:
-                # Right now, we only support running a single test class at once,
-                # but it's relatively easy to expand that to make the test process faster
-                # TODO: support a list of tests
-                hooks.start(count=1)
-                # Mobly gives the test run time in seconds, lets be a bit more precise
-                runner_start_time = datetime.now(timezone.utc)
-
-            try:
-                runner.run()
-                ok = runner.results.is_all_pass and ok
-                if matter_test_config.fail_on_skipped_tests and runner.results.skipped:
-                    ok = False
-            except TimeoutError:
-                ok = False
-            except signals.TestAbortAll:
-                ok = False
-            except Exception:
-                logging.exception('Exception when executing %s.', test_config.testbed_name)
-                ok = False
-
-    if hooks:
-        duration = (datetime.now(timezone.utc) - runner_start_time) / timedelta(microseconds=1)
-        hooks.stop(duration=duration)
-
-    if not external_stack:
-        async def shutdown():
-            stack.Shutdown()
-        # Shutdown the stack when all done. Use the async runner to ensure that
-        # during the shutdown callbacks can use tha same async context which was used
-        # during the initialization.
-        event_loop.run_until_complete(shutdown())
-
-    if ok:
-        logging.info("Final result: PASS !")
-    else:
-        logging.error("Final result: FAIL !")
-    return ok
-
-
-def run_tests(test_class: MatterBaseTest, matter_test_config: MatterTestConfig,
-              hooks: TestRunnerHooks, default_controller=None, external_stack=None) -> None:
-    with asyncio.Runner() as runner:
-        if not run_tests_no_exit(test_class, matter_test_config, runner.get_loop(),
-                                 hooks, default_controller, external_stack):
-            sys.exit(1)
+# run_tests_no_exit and run_tests functions have been moved to runner.py
+# These functions are now imported from runner.py at the top of the file
 
 
 # TODO(#37537): Remove these temporary aliases after transition period
 type_matches = matchers.is_type
-utc_time_in_matter_epoch = timeoperations.utc_time_in_matter_epoch
-utc_datetime_from_matter_epoch_us = timeoperations.utc_datetime_from_matter_epoch_us
-utc_datetime_from_posix_time_ms = timeoperations.utc_datetime_from_posix_time_ms
-compare_time = timeoperations.compare_time
-get_wait_seconds_from_set_time = timeoperations.get_wait_seconds_from_set_time
-bytes_from_hex = conversions.bytes_from_hex
-hex_from_bytes = conversions.hex_from_bytes
-id_str = conversions.format_decimal_and_hex
-cluster_id_str = conversions.cluster_id_with_name
+
+
+@dataclass
+class MatterTestConfig:
+    root_of_trust_index: int
+    fabric_id: int
+    chip_tool_credentials_path: pathlib.Path
+    dut_node_ids: List[int]
+    commissioning_method: str
+    in_test_commissioning_method: str
+    commission_only: bool
+    qr_code_content: List[str]
+    manual_code: List[str]
+    discriminators: List[int]
+    setup_passcodes: List[int]
+    storage_path: pathlib.Path
+    logs_path: pathlib.Path
+    paa_trust_store_path: pathlib.Path
+    ble_interface_id: int
+    pics: dict[str, Any]
+    tests: List[str]
+    timeout: Optional[int]
+    endpoint: Optional[int]
+    app_pid: Optional[int]
+    fail_on_skipped: bool
+    controller_node_id: int
+    trace_to: List[str]
+    tc_version_to_simulate: Optional[int]
+    tc_user_response_to_simulate: Optional[int]
+    dac_revocation_set_path: pathlib.Path
+    wifi_ssid: Optional[str]
+    wifi_passphrase: Optional[str]
+    thread_operational_dataset: Optional[bytes]
+    ip_addr: Optional[str]
+    case_admin_subject: Optional[int]
+    global_test_params: dict[str, Any]
+    meta_config: dict[str, Any]
