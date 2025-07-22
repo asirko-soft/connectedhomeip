@@ -526,8 +526,9 @@ jobs:
               run: |
                   mkdir -p .ccache
 
-            - name: ccache
-              uses: actions/cache@v4
+            - name: ccache restore
+              id: ccache-restore
+              uses: actions/cache/restore@v4
               with:
                   path: .ccache
                   key: ccache-${{ runner.os }}-${{ matrix.build_variant }}-${{ github.sha }}
@@ -828,6 +829,13 @@ jobs:
                   path: objdir-clone/
                   # objdirs are big; don't hold on to them too long.
                   retention-days: 5
+            - name: ccache save
+              id: ccache-save
+              if: always()
+              uses: actions/cache/save@v4
+              with:
+                  path: .ccache
+                  key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
 
     repl_tests_darwin:
         name: REPL Tests - Darwin

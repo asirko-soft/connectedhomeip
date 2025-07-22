@@ -251,7 +251,7 @@ gn_args=(
     "chip_support_webrtc_python_bindings=true"
 )
 if [[ "$enable_ccache" == "yes" ]]; then
-    gn_args+=('pw_command_launcher="ccache"')
+    gn_args+=('cc_wrapper="ccache"')
 fi
 if [[ -n "$chip_mdns" ]]; then
     gn_args+=("chip_mdns=\"$chip_mdns\"")
@@ -271,7 +271,7 @@ gn_args+=("${extra_gn_args[@]}")
 gn --root="$CHIP_ROOT" gen "$OUTPUT_ROOT" --args="${gn_args[*]}"
 
 # Compile Python wheels
-ninja -C "$OUTPUT_ROOT" python_wheels
+ninja -v -C "$OUTPUT_ROOT" python_wheels
 
 # Add wheels from chip_python_wheel_action templates.
 WHEEL=("$OUTPUT_ROOT"/controller/python/chip*.whl)
