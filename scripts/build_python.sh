@@ -51,6 +51,7 @@ declare -a extra_packages
 declare -a extra_gn_args
 declare chip_build_controller_dynamic_server=true
 declare enable_pw_rpc=false
+declare enable_ccache=no
 
 help() {
 
@@ -84,6 +85,7 @@ Input Options:
   -ds, --chip_build_controller_dynamic_server <true/false>  Enable dynamic server in controller.
                                                             Defaults to $chip_build_controller_dynamic_server.
   -pw  --enable_pw_rpc <true/false>                         Build Pw Python wheels. Defaults to $enable_pw_rpc.
+  --enable-ccache                                         Use ccache for building python wheels.
 "
 }
 
@@ -183,6 +185,9 @@ while (($#)); do
             fi
             shift
             ;;
+        --enable-ccache)
+            enable_ccache=yes
+            ;;
         -*)
             help
             echo "Unknown Option \"$1\""
@@ -206,6 +211,7 @@ echo "  enable_ipv4=\"$enable_ipv4\""
 echo "  chip_build_controller_dynamic_server=\"$chip_build_controller_dynamic_server\""
 echo "  chip_support_webrtc_python_bindings=true"
 echo "  enable_pw_rpc=\"$enable_pw_rpc\""
+echo "  enable_ccache=\"$enable_ccache\""
 
 if [[ ${#extra_gn_args[@]} -gt 0 ]]; then
     echo "In addition, the following extra args will added to gn command line: ${extra_gn_args[*]}"
@@ -244,6 +250,9 @@ gn_args=(
     "chip_build_controller_dynamic_server=$chip_build_controller_dynamic_server"
     "chip_support_webrtc_python_bindings=true"
 )
+if [[ "$enable_ccache" == "yes" ]]; then
+    gn_args+=('cc_wrapper="ccache"')
+fi
 if [[ -n "$chip_mdns" ]]; then
     gn_args+=("chip_mdns=\"$chip_mdns\"")
 fi
@@ -254,7 +263,7 @@ if [[ -n "$pregen_dir" ]]; then
     gn_args+=("chip_code_pre_generated_directory=\"$pregen_dir\"")
 fi
 if [[ -n $wifi_paf_config ]]; then
-    args+=("$wifi_paf_config")
+    gn_args+=("$wifi_paf_config")
 fi
 # Append extra arguments provided by the user.
 gn_args+=("${extra_gn_args[@]}")

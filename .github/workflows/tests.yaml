@@ -238,6 +238,7 @@ jobs:
                      "./scripts/build_python.sh \
                         --install_virtual_env out/venv \
                         --include_pytest_deps yes \
+                        --enable-ccache \
                      "
                   ./scripts/run_in_build_env.sh \
                      "./scripts/build/build_examples.py \
@@ -534,7 +535,7 @@ jobs:
                       ccache-${{ runner.os }}-${{ matrix.build_variant }}-
 
             - name: Build python env
-              run: scripts/run_in_build_env.sh './scripts/build_python.sh --install_virtual_env out/venv'
+              run: scripts/run_in_build_env.sh './scripts/build_python.sh --install_virtual_env out/venv --enable-ccache'
 
             - name: Build linux-x64-all-clusters
               env:
@@ -861,7 +862,7 @@ jobs:
 
             - name: Build Python REPL and example apps
               run: |
-                  scripts/run_in_build_env.sh './scripts/build_python.sh --install_virtual_env out/venv'
+                  scripts/run_in_build_env.sh './scripts/build_python.sh --install_virtual_env out/venv --enable-ccache'
                   ./scripts/run_in_build_env.sh \
                    "./scripts/build/build_examples.py \
                       --target darwin-x64-all-clusters-${BUILD_VARIANT}-test \
