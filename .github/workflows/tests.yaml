@@ -531,8 +531,9 @@ jobs:
               uses: actions/cache/restore@v4
               with:
                   path: .ccache
-                  key: ccache-${{ runner.os }}-${{ matrix.build_variant }}-${{ github.sha }}
+                  key: ccache-${{ runner.os }}-${{ matrix.build_variant }}-${{ github.run_id }}-${{ github.run_attempt }}
                   restore-keys: |
+                      ccache-${{ runner.os }}-${{ matrix.build_variant }}-${{ github.run_id }}-
                       ccache-${{ runner.os }}-${{ matrix.build_variant }}-
 
             - name: Build python env
