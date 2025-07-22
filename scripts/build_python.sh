@@ -251,7 +251,7 @@ gn_args=(
     "chip_support_webrtc_python_bindings=true"
 )
 if [[ "$enable_ccache" == "yes" ]]; then
-    gn_args+=('cc_wrapper="ccache"')
+    gn_args+=('pw_command_launcher="ccache"')
 fi
 if [[ -n "$chip_mdns" ]]; then
     gn_args+=("chip_mdns=\"$chip_mdns\"")
