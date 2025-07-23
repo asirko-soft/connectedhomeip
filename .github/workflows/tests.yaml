@@ -526,21 +526,31 @@ jobs:
               run: |
                   mkdir -p .ccache
 
+            - name: Set cache prefix
+              run: |
+                  if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+                    echo "CACHE_PREFIX=pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+                  else
+                    echo "CACHE_PREFIX=master" >> $GITHUB_ENV
+                  fi
+
             - name: Configure ccache for performance
               run: |
                 echo "CCACHE_BASEDIR=${{ github.workspace }}" >> $GITHUB_ENV
                 echo "CCACHE_SLOPPINESS=time_macros" >> $GITHUB_ENV
                 echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
+                echo "CCACHE_COMPILERCHECK=content" >> $GITHUB_ENV
 
             - name: ccache restore
               id: ccache-restore
               uses: actions/cache/restore@v4
               with:
                   path: .ccache
-                  key: ccache-${{ runner.os }}-${{ matrix.build_variant }}-${{ github.run_id }}-${{ github.run_attempt }}
+                  key: ccache-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.build_variant }}-150-${{ github.sha }}
                   restore-keys: |
-                      ccache-${{ runner.os }}-${{ matrix.build_variant }}-${{ github.run_id }}-
-                      ccache-${{ runner.os }}-${{ matrix.build_variant }}-
+                      ccache-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.build_variant }}-150-
+                      ccache-master-${{ runner.os }}-${{ matrix.build_variant }}-150-
+                      ccache-${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ matrix.build_variant }}-
 
             - name: Build python env
               run: scripts/run_in_build_env.sh './scripts/build_python.sh --install_virtual_env out/venv --enable-ccache'
