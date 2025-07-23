@@ -250,9 +250,7 @@ gn_args=(
     "chip_build_controller_dynamic_server=$chip_build_controller_dynamic_server"
     "chip_support_webrtc_python_bindings=true"
 )
-if [[ "$enable_ccache" == "yes" ]]; then
-    gn_args+=('cc_wrapper="ccache"')
-fi
+# ccache is handled via environment variables instead of cc_wrapper
 if [[ -n "$chip_mdns" ]]; then
     gn_args+=("chip_mdns=\"$chip_mdns\"")
 fi
@@ -269,6 +267,22 @@ fi
 gn_args+=("${extra_gn_args[@]}")
 
 gn --root="$CHIP_ROOT" gen "$OUTPUT_ROOT" --args="${gn_args[*]}"
+
+# Set up ccache environment for compilation
+if [[ "$enable_ccache" == "yes" ]]; then
+    # Only wrap if not already wrapped with ccache
+    if [[ -n "$CC" ]] && [[ "$CC" != ccache* ]]; then
+        export CC="ccache $CC"
+    elif [[ -z "$CC" ]]; then
+        export CC="ccache gcc"
+    fi
+    
+    if [[ -n "$CXX" ]] && [[ "$CXX" != ccache* ]]; then
+        export CXX="ccache $CXX"
+    elif [[ -z "$CXX" ]]; then
+        export CXX="ccache g++"
+    fi
+fi
 
 # Compile Python wheels
 ninja -v -C "$OUTPUT_ROOT" python_wheels
