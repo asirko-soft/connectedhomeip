@@ -528,8 +528,9 @@ jobs:
 
             - name: Configure ccache for performance
               run: |
-                echo "CCACHE_BASEDIR=${GITHUB_WORKSPACE}" >> $GITHUB_ENV
+                echo "CCACHE_BASEDIR=${{ github.workspace }}" >> $GITHUB_ENV
                 echo "CCACHE_SLOPPINESS=time_macros" >> $GITHUB_ENV
+                echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
 
             - name: ccache restore
               id: ccache-restore
@@ -546,7 +547,7 @@ jobs:
 
             - name: Build linux-x64-all-clusters
               env:
-                  CCACHE_DIR: "${GITHUB_WORKSPACE}/.ccache"
+                  CCACHE_DIR: "${{ github.workspace }}/.ccache"
               run: >-
                   ./scripts/run_in_build_env.sh "./scripts/build/build_examples.py
                   --target linux-x64-all-clusters-${BUILD_VARIANT}-tsan-clang-test
@@ -556,7 +557,7 @@ jobs:
             # TODO: determine why some apps are tsan and some are not (and does that add runtime overhead? )
             - name: Build linux-x64-bridge
               env:
-                  CCACHE_DIR: "${GITHUB_WORKSPACE}/.ccache"
+                  CCACHE_DIR: "${{ github.workspace }}/.ccache"
               run: >-
                   ./scripts/run_in_build_env.sh "./scripts/build/build_examples.py
                   --target linux-x64-bridge-${BUILD_VARIANT}-tsan-clang-test
@@ -565,7 +566,7 @@ jobs:
 
             - name: Build linux-x64-lock
               env:
-                  CCACHE_DIR: "${GITHUB_WORKSPACE}/.ccache"
+                  CCACHE_DIR: "${{ github.workspace }}/.ccache"
               run: >-
                   ./scripts/run_in_build_env.sh "./scripts/build/build_examples.py
                   --target linux-x64-lock-${BUILD_VARIANT}-tsan-clang-test
@@ -574,7 +575,7 @@ jobs:
 
             - name: Build linux-x64-lit-icd
               env:
-                  CCACHE_DIR: "${GITHUB_WORKSPACE}/.ccache"
+                  CCACHE_DIR: "${{ github.workspace }}/.ccache"
               run: >-
                   ./scripts/run_in_build_env.sh "./scripts/build/build_examples.py
                   --target linux-x64-lit-icd-${BUILD_VARIANT}-tsan-clang-test
@@ -665,7 +666,7 @@ jobs:
             # TODO: camera app needs clang support
             - name: Build linux-x64-camera
               env:
-                  CCACHE_DIR: "${GITHUB_WORKSPACE}/.ccache"
+                  CCACHE_DIR: "${{ github.workspace }}/.ccache"
               run: >-
                   ./scripts/run_in_build_env.sh "./scripts/build/build_examples.py
                   --target linux-x64-camera
