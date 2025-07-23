@@ -845,7 +845,7 @@ jobs:
                   retention-days: 5
             - name: ccache save
               id: ccache-save
-              if: always()
+              if: steps.ccache-restore.outputs.cache-hit != 'true'
               uses: actions/cache/save@v4
               with:
                   path: .ccache
