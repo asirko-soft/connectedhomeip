@@ -250,7 +250,10 @@ gn_args=(
     "chip_build_controller_dynamic_server=$chip_build_controller_dynamic_server"
     "chip_support_webrtc_python_bindings=true"
 )
-# ccache is handled via environment variables instead of cc_wrapper
+# Add ccache support through pw_command_launcher when enabled
+if [[ "$enable_ccache" == "yes" ]]; then
+    gn_args+=("pw_command_launcher=\"ccache\"")
+fi
 if [[ -n "$chip_mdns" ]]; then
     gn_args+=("chip_mdns=\"$chip_mdns\"")
 fi
