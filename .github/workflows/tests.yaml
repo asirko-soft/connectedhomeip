@@ -960,8 +960,11 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
             - name: Setup Environment
-              # coreutils for stdbuf
-              run: brew install coreutils
+              # coreutils for stdbuf, ccache for compilation caching
+              run: |
+                  brew install coreutils ccache
+                  # Ensure ccache is in PATH for both Intel and Apple Silicon Macs
+                  echo "/opt/homebrew/bin:/usr/local/bin:$PATH" >> $GITHUB_PATH
             - name: Try to ensure the directories for core dumping and diagnostic
                   log collection exist and we can write them.
               run: |
