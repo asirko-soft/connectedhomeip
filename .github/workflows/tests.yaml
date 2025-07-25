@@ -428,7 +428,10 @@ jobs:
               uses: actions/checkout@v4
             - name: Setup Environment
               # coreutils for stdbuf, ccache for compilation caching
-              run: brew install coreutils ccache
+              run: |
+                  brew install coreutils ccache
+                  # Ensure ccache is in PATH for both Intel and Apple Silicon Macs
+                  echo "/opt/homebrew/bin:/usr/local/bin:$PATH" >> $GITHUB_PATH
             - name: Try to ensure the directories for core dumping and diagnostic
                   log collection exist and we can write them.
               run: |
@@ -850,24 +853,24 @@ jobs:
                   echo "BRIDGE_APP: objdir-clone/linux-x64-bridge-${BUILD_VARIANT}-tsan-clang-test/chip-bridge-app" >> /tmp/test_env.yaml
                   echo "CHIP_LOCK_APP: objdir-clone/linux-x64-lock-${BUILD_VARIANT}-tsan-clang-test/chip-lock-app" >> /tmp/test_env.yaml
                   echo "CAMERA_APP: objdir-clone/linux-x64-camera/chip-camera-app" >> /tmp/test_env.yaml
-                  # echo "CAMERA_CONTROLLER_APP: objdir-clone/linux-x64-camera-controller/chip-camera-controller" >> /tmp/test_env.yaml
-                  # echo "ENERGY_MANAGEMENT_APP: objdir-clone/linux-x64-energy-management-${BUILD_VARIANT}-tsan-clang-test/chip-energy-management-app" >> /tmp/test_env.yaml
-                  # echo "ENERGY_GATEWAY_APP: objdir-clone/linux-x64-energy-gateway-${BUILD_VARIANT}-tsan-clang-test/chip-energy-gateway-app" >> /tmp/test_env.yaml
+                  echo "CAMERA_CONTROLLER_APP: objdir-clone/linux-x64-camera-controller/chip-camera-controller" >> /tmp/test_env.yaml
+                  echo "ENERGY_MANAGEMENT_APP: objdir-clone/linux-x64-energy-management-${BUILD_VARIANT}-tsan-clang-test/chip-energy-management-app" >> /tmp/test_env.yaml
+                  echo "ENERGY_GATEWAY_APP: objdir-clone/linux-x64-energy-gateway-${BUILD_VARIANT}-tsan-clang-test/chip-energy-gateway-app" >> /tmp/test_env.yaml
                   echo "LIT_ICD_APP: objdir-clone/linux-x64-lit-icd-${BUILD_VARIANT}-tsan-clang-test/lit-icd-app" >> /tmp/test_env.yaml
-                  # echo "AIR_PURIFIER_APP: objdir-clone/linux-x64-air-purifier-${BUILD_VARIANT}-tsan-clang-test/chip-air-purifier-app" >> /tmp/test_env.yaml
-                  # echo "CHIP_MICROWAVE_OVEN_APP: objdir-clone/linux-x64-microwave-oven-${BUILD_VARIANT}-tsan-clang-test/chip-microwave-oven-app" >> /tmp/test_env.yaml
-                  # echo "CHIP_RVC_APP: objdir-clone/linux-x64-rvc-${BUILD_VARIANT}-tsan-clang-test/chip-rvc-app" >> /tmp/test_env.yaml
-                  # echo "NETWORK_MANAGEMENT_APP: objdir-clone/linux-x64-network-manager-${BUILD_VARIANT}-tsan-clang-test/matter-network-manager-app" >> /tmp/test_env.yaml
-                  # echo "FABRIC_ADMIN_APP: objdir-clone/linux-x64-fabric-admin-rpc-${BUILD_VARIANT}-clang/fabric-admin" >> /tmp/test_env.yaml
-                  # echo "FABRIC_BRIDGE_APP: objdir-clone/linux-x64-fabric-bridge-rpc-${BUILD_VARIANT}-clang/fabric-bridge-app" >> /tmp/test_env.yaml
-                  # echo "FABRIC_SYNC_APP: objdir-clone/linux-x64-fabric-sync-${BUILD_VARIANT}-clang/fabric-sync" >> /tmp/test_env.yaml
-                  # echo "LIGHTING_APP_NO_UNIQUE_ID: objdir-clone/linux-x64-light-data-model-no-unique-id-${BUILD_VARIANT}-clang/chip-lighting-app" >> /tmp/test_env.yaml
-                  # echo "TERMS_AND_CONDITIONS_APP: objdir-clone/linux-x64-terms-and-conditions/chip-terms-and-conditions-app" >> /tmp/test_env.yaml
+                  echo "AIR_PURIFIER_APP: objdir-clone/linux-x64-air-purifier-${BUILD_VARIANT}-tsan-clang-test/chip-air-purifier-app" >> /tmp/test_env.yaml
+                  echo "CHIP_MICROWAVE_OVEN_APP: objdir-clone/linux-x64-microwave-oven-${BUILD_VARIANT}-tsan-clang-test/chip-microwave-oven-app" >> /tmp/test_env.yaml
+                  echo "CHIP_RVC_APP: objdir-clone/linux-x64-rvc-${BUILD_VARIANT}-tsan-clang-test/chip-rvc-app" >> /tmp/test_env.yaml
+                  echo "NETWORK_MANAGEMENT_APP: objdir-clone/linux-x64-network-manager-${BUILD_VARIANT}-tsan-clang-test/matter-network-manager-app" >> /tmp/test_env.yaml
+                  echo "FABRIC_ADMIN_APP: objdir-clone/linux-x64-fabric-admin-rpc-${BUILD_VARIANT}-clang/fabric-admin" >> /tmp/test_env.yaml
+                  echo "FABRIC_BRIDGE_APP: objdir-clone/linux-x64-fabric-bridge-rpc-${BUILD_VARIANT}-clang/fabric-bridge-app" >> /tmp/test_env.yaml
+                  echo "FABRIC_SYNC_APP: objdir-clone/linux-x64-fabric-sync-${BUILD_VARIANT}-clang/fabric-sync" >> /tmp/test_env.yaml
+                  echo "LIGHTING_APP_NO_UNIQUE_ID: objdir-clone/linux-x64-light-data-model-no-unique-id-${BUILD_VARIANT}-clang/chip-lighting-app" >> /tmp/test_env.yaml
+                  echo "TERMS_AND_CONDITIONS_APP: objdir-clone/linux-x64-terms-and-conditions/chip-terms-and-conditions-app" >> /tmp/test_env.yaml
                   echo "TRACE_APP: out/trace_data/app-{SCRIPT_BASE_NAME}" >> /tmp/test_env.yaml
-                  # echo "JF_CONTROL_APP: objdir-clone/linux-x64-jf-control-app/jfc-app" >> /tmp/test_env.yaml
-                  # echo "JF_ADMIN_APP: objdir-clone/linux-x64-jf-admin-app/jfa-app" >> /tmp/test_env.yaml
-                  # echo "CLOSURE_APP: objdir-clone/linux-x64-closure-${BUILD_VARIANT}-tsan-clang-test/closure-app" >> /tmp/test_env.yaml
-                  # echo "PUSH_AV_SERVER: objdir-clone/push_av_server/server.py" >> /tmp/test_env.yaml
+                  echo "JF_CONTROL_APP: objdir-clone/linux-x64-jf-control-app/jfc-app" >> /tmp/test_env.yaml
+                  echo "JF_ADMIN_APP: objdir-clone/linux-x64-jf-admin-app/jfa-app" >> /tmp/test_env.yaml
+                  echo "CLOSURE_APP: objdir-clone/linux-x64-closure-${BUILD_VARIANT}-tsan-clang-test/closure-app" >> /tmp/test_env.yaml
+                  echo "PUSH_AV_SERVER: objdir-clone/push_av_server/server.py" >> /tmp/test_env.yaml
 
                   # Generic trace setups after applications
                   echo "TRACE_TEST_JSON: out/trace_data/test-{SCRIPT_BASE_NAME}" >> /tmp/test_env.yaml
