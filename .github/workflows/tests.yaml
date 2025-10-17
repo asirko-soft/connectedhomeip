@@ -427,7 +427,7 @@ jobs:
                   # objdirs are big; don't hold on to them too long.
                   retention-days: 5
             - name: Delete existing ccache before save
-              if: github.ref == 'refs/heads/master' && steps.ccache.outputs.cache-hit != 'true' && env.DISABLE_CCACHE != 'true'
+              if: steps.ccache.outputs.cache-hit != 'true' && env.DISABLE_CCACHE != 'true'
               uses: actions/github-script@v7
               env:
                   CACHE_KEY: ${{ env.CCACHE_KEY }}
@@ -445,7 +445,7 @@ jobs:
                         core.warning(`Could not delete cache: ${e.message}`);
                       }
             - name: Save ccache
-              if: github.ref == 'refs/heads/master' && steps.ccache.outputs.cache-hit != 'true' && env.DISABLE_CCACHE != 'true'
+              if: steps.ccache.outputs.cache-hit != 'true' && env.DISABLE_CCACHE != 'true'
               uses: actions/cache/save@v4
               with:
                   path: .ccache
@@ -980,7 +980,7 @@ jobs:
                   # objdirs are big; don't hold on to them too long.
                   retention-days: 5
             - name: Delete existing ccache before save
-              if: github.ref == 'refs/heads/master' && steps.ccache.outputs.cache-hit != 'true' && env.DISABLE_CCACHE != 'true'
+              if: steps.ccache.outputs.cache-hit != 'true' && env.DISABLE_CCACHE != 'true'
               uses: actions/github-script@v7
               env:
                   CACHE_KEY: ${{ env.CCACHE_KEY }}
@@ -998,7 +998,7 @@ jobs:
                         core.warning(`Could not delete cache: ${e.message}`);
                       }
             - name: Save ccache
-              if: github.ref == 'refs/heads/master' && steps.ccache.outputs.cache-hit != 'true' && env.DISABLE_CCACHE != 'true'
+              if: steps.ccache.outputs.cache-hit != 'true' && env.DISABLE_CCACHE != 'true'
               uses: actions/cache/save@v4
               with:
                   path: .ccache
