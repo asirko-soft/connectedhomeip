@@ -438,11 +438,25 @@ jobs:
                       const repo = context.repo.repo;
                       const key = process.env.CACHE_KEY;
                       const ref = context.ref;
+                      
+                      core.info(`🔍 Attempting to delete cache:`);
+                      core.info(`  Key: ${key}`);
+                      core.info(`  Ref: ${ref}`);
+                      
                       try {
-                        await github.request('DELETE /repos/{owner}/{repo}/actions/caches', { owner, repo, key, ref });
-                        core.info(`Deleted cache for key: ${key} ref: ${ref}`);
+                        await github.rest.actions.deleteActionsCacheByKey({
+                          owner: owner,
+                          repo: repo,
+                          key: key,
+                          ref: ref
+                        });
+                        core.info(`✅ Successfully deleted cache: ${key}`);
                       } catch (e) {
-                        core.warning(`Could not delete cache: ${e.message}`);
+                        if (e.status === 404) {
+                          core.warning(`⚠️ Cache not found (first run or already deleted)`);
+                        } else {
+                          core.warning(`❌ Failed to delete cache: ${e.message}`);
+                        }
                       }
             - name: Save ccache
               if: steps.ccache.outputs.cache-hit != 'true' && env.DISABLE_CCACHE != 'true'
@@ -991,11 +1005,25 @@ jobs:
                       const repo = context.repo.repo;
                       const key = process.env.CACHE_KEY;
                       const ref = context.ref;
+                      
+                      core.info(`🔍 Attempting to delete cache:`);
+                      core.info(`  Key: ${key}`);
+                      core.info(`  Ref: ${ref}`);
+                      
                       try {
-                        await github.request('DELETE /repos/{owner}/{repo}/actions/caches', { owner, repo, key, ref });
-                        core.info(`Deleted cache for key: ${key} ref: ${ref}`);
+                        await github.rest.actions.deleteActionsCacheByKey({
+                          owner: owner,
+                          repo: repo,
+                          key: key,
+                          ref: ref
+                        });
+                        core.info(`✅ Successfully deleted cache: ${key}`);
                       } catch (e) {
-                        core.warning(`Could not delete cache: ${e.message}`);
+                        if (e.status === 404) {
+                          core.warning(`⚠️ Cache not found (first run or already deleted)`);
+                        } else {
+                          core.warning(`❌ Failed to delete cache: ${e.message}`);
+                        }
                       }
             - name: Save ccache
               if: steps.ccache.outputs.cache-hit != 'true' && env.DISABLE_CCACHE != 'true'
