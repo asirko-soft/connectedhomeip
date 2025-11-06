@@ -223,11 +223,16 @@ class BuildTarget:
         self.modifiers: List[TargetPart] = []
 
     def isUnifiedBuild(self, parts: List[TargetPart]):
-        """Checks if the given parts combine into a unified build."""
+        """Checks if the given parts combine into a unified build.
+        
+        Returns the unified group ID (e.g., 'main', 'no-read-client', 'rpc-json')
+        if this is a unified build, or None otherwise.
+        """
         for part in parts:
             if part.build_arguments.get('unified', False):
-                return True
-        return False
+                # Return the group ID, defaulting to 'main' for backward compatibility
+                return part.build_arguments.get('unified_group', 'main')
+        return None
 
     def AppendFixedTargets(self, parts: List[TargetPart]):
         """Append a list of potential targets/variants.
@@ -467,8 +472,14 @@ class BuildTarget:
         builder = self.builder_class(repository_path, runner=runner, **kargs)
         builder.target = self
         builder.identifier = name
-        if self.isUnifiedBuild(parts):
-            builder.output_dir = os.path.join(output_prefix, 'unified-build')
+        unified_group = self.isUnifiedBuild(parts)
+        if unified_group:
+            # Use group-specific output directory
+            if unified_group == 'main':
+                dir_name = 'unified-build'
+            else:
+                dir_name = f'unified-{unified_group}'
+            builder.output_dir = os.path.join(output_prefix, dir_name)
         else:
             # TODO: can we check if builds are compatible?
             builder.output_dir = os.path.join(output_prefix, name)

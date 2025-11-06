@@ -95,27 +95,41 @@ class HostApp(Enum):
     JF_ADMIN = auto()
     CLOSURE = auto()
 
-    def UnifiedTargetName(self):
+    def UnifiedTargetName(self, unified_group='main'):
         """
-        returns the target name to compile an app as a unified build (i.e. with the GN
-        root set to '')
+        Returns the target name to compile an app as a unified build (i.e. with the GN
+        root set to ''). The unified_group parameter specifies which unified build
+        group this app belongs to.
         """
         TARGETS = {
-            # keep-sorted start
-            HostApp.AIR_PURIFIER: ":linux_air_purifier_app",
-            HostApp.BRIDGE: ":linux_bridge_app",
-            HostApp.CLOSURE: ":linux_closure_app",
-            HostApp.LIGHT: ":linux_lighting_app",
-            HostApp.LOCK: ":linux_lock_app",
-            HostApp.MICROWAVE_OVEN: ":linux_microwave_oven_app",
-            HostApp.OTA_PROVIDER: ":linux_ota_provider_app",
-            HostApp.RVC: ":linux_rvc_app",
-            HostApp.THERMOSTAT: ":linux_thermostat_app",
-            HostApp.TV_APP: ":linux_tv_app",
-            HostApp.WATER_LEAK_DETECTOR: ":linux_water_leak_detector_app",
-            # keep-sorted end
+            'main': {
+                # keep-sorted start
+                HostApp.AIR_PURIFIER: ":linux_air_purifier_app",
+                HostApp.BRIDGE: ":linux_bridge_app",
+                HostApp.CLOSURE: ":linux_closure_app",
+                HostApp.LIGHT: ":linux_lighting_app",
+                HostApp.LOCK: ":linux_lock_app",
+                HostApp.MICROWAVE_OVEN: ":linux_microwave_oven_app",
+                HostApp.OTA_PROVIDER: ":linux_ota_provider_app",
+                HostApp.RVC: ":linux_rvc_app",
+                HostApp.THERMOSTAT: ":linux_thermostat_app",
+                HostApp.TV_APP: ":linux_tv_app",
+                HostApp.WATER_LEAK_DETECTOR: ":linux_water_leak_detector_app",
+                # keep-sorted end
+            },
+            'no-read-client': {
+                HostApp.LIGHT: ":linux_lighting_app",
+                HostApp.LIGHT_DATA_MODEL_NO_UNIQUE_ID: ":linux_lighting_app_no_unique_id",
+                HostApp.ENERGY_MANAGEMENT: ":linux_energy_management_app",
+                HostApp.JF_ADMIN: ":linux_jf_admin_app",
+            },
+            'rpc-json': {
+                HostApp.FABRIC_ADMIN: ":linux_fabric_admin",
+                HostApp.FABRIC_BRIDGE: ":linux_fabric_bridge_app",
+                HostApp.JF_CONTROL: ":linux_jf_control_app",
+            },
         }
-        return TARGETS[self]
+        return TARGETS[unified_group][self]
 
     def ExamplePath(self):
         if self == HostApp.ALL_CLUSTERS:
@@ -401,7 +415,8 @@ class HostBuilder(GnBuilder):
                  use_googletest=False,
                  enable_webrtc=False,
                  terms_and_conditions_required: Optional[bool] = None, chip_enable_nfc_based_commissioning=None,
-                 unified=False
+                 unified=False,
+                 unified_group='main'
                  ):
         """
         Construct a host builder.
@@ -438,9 +453,21 @@ class HostBuilder(GnBuilder):
         if unified:
             self.extra_gn_options.append('target_os="all"')
             self.extra_gn_options.append('matter_enable_tracing_support=true')
-            self.extra_gn_options.append('matter_log_json_payload_hex=true')
-            self.extra_gn_options.append('matter_log_json_payload_decode_full=true')
-            self.build_command = app.UnifiedTargetName()
+            
+            # Apply group-specific GN args
+            if unified_group == 'main':
+                self.extra_gn_options.append('matter_log_json_payload_hex=true')
+                self.extra_gn_options.append('matter_log_json_payload_decode_full=true')
+            elif unified_group == 'no-read-client':
+                self.extra_gn_options.append('chip_enable_read_client=false')
+                self.extra_gn_options.append('matter_log_json_payload_hex=true')
+                self.extra_gn_options.append('matter_log_json_payload_decode_full=true')
+            elif unified_group == 'rpc-json':
+                self.extra_gn_options.append('matter_log_json_payload_hex=true')
+                self.extra_gn_options.append('matter_log_json_payload_decode_full=true')
+                # RPC is enabled via enable_rpcs parameter, already handled above
+            
+            self.build_command = app.UnifiedTargetName(unified_group)
 
         if not enable_wifipaf:
             self.extra_gn_options.append(

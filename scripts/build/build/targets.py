@@ -204,7 +204,7 @@ def BuildHostTarget():
     target.AppendModifier('googletest', use_googletest=True).OnlyIfRe('-tests')
     target.AppendModifier('terms-and-conditions', terms_and_conditions_required=True)
     target.AppendModifier('webrtc', enable_webrtc=True)
-    target.AppendModifier('unified', unified=True).OnlyIfRe(
+    target.AppendModifier('unified', unified=True, unified_group='main').OnlyIfRe(
         "-(" + "|".join([
             # keep-sorted start
             'air-purifier',
@@ -220,6 +220,23 @@ def BuildHostTarget():
             'water-leak-detector',
             # keep-sorted end
         ]) + ")-")
+    
+    # Group 2: No Read Client unified builds
+    target.AppendModifier('unified-no-read-client', unified=True, unified_group='no-read-client').OnlyIfRe(
+        "-(" + "|".join([
+            'energy-management',
+            'jf-admin-app',
+            'light',
+            'light-data-model-no-unique-id',
+        ]) + ")-")
+    
+    # Group 3: RPC with JSON logging unified builds
+    target.AppendModifier('unified-rpc-json', unified=True, unified_group='rpc-json').OnlyIfRe(
+        "-(" + "|".join([
+            'fabric-admin',
+            'fabric-bridge',
+            'jf-control-app',
+        ]) + ")-").OnlyIfRe('-rpc')
 
     return target
 
