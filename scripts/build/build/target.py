@@ -224,7 +224,7 @@ class BuildTarget:
 
     def isUnifiedBuild(self, parts: List[TargetPart]):
         """Checks if the given parts combine into a unified build.
-        
+
         Returns the unified group ID (e.g., 'main', 'no-read-client', 'rpc-json')
         if this is a unified build, or None otherwise.
         """

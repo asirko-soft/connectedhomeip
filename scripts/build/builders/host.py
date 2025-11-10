@@ -453,9 +453,12 @@ class HostBuilder(GnBuilder):
         if unified:
             self.extra_gn_options.append('target_os="all"')
             self.extra_gn_options.append('matter_enable_tracing_support=true')
-            
+
             # Apply group-specific GN args
             if unified_group == 'main':
+                self.extra_gn_options.append('matter_log_json_payload_hex=true')
+                self.extra_gn_options.append('matter_log_json_payload_decode_full=true')
+            elif unified_group == 'energy':
                 self.extra_gn_options.append('matter_log_json_payload_hex=true')
                 self.extra_gn_options.append('matter_log_json_payload_decode_full=true')
             elif unified_group == 'no-read-client':
@@ -466,7 +469,7 @@ class HostBuilder(GnBuilder):
                 self.extra_gn_options.append('matter_log_json_payload_hex=true')
                 self.extra_gn_options.append('matter_log_json_payload_decode_full=true')
                 # RPC is enabled via enable_rpcs parameter, already handled above
-            
+
             self.build_command = app.UnifiedTargetName(unified_group)
 
         if not enable_wifipaf:

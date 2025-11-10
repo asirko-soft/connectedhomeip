@@ -225,7 +225,7 @@ def BuildHostTarget():
             'energy-gateway',
             'energy-management',
         ]) + ")-")
-    
+
     # Group 2: No Read Client unified builds
     target.AppendModifier('unified-no-read-client', unified=True, unified_group='no-read-client').OnlyIfRe(
         "-(" + "|".join([
@@ -234,7 +234,7 @@ def BuildHostTarget():
             'light',
             'light-data-model-no-unique-id',
         ]) + ")-")
-    
+
     # Group 3: RPC with JSON logging unified builds
     target.AppendModifier('unified-rpc-json', unified=True, unified_group='rpc-json').OnlyIfRe(
         "-(" + "|".join([
