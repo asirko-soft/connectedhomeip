@@ -220,6 +220,11 @@ def BuildHostTarget():
             'water-leak-detector',
             # keep-sorted end
         ]) + ")-")
+    target.AppendModifier('energy-unified', unified=True, unified_group='energy').OnlyIfRe(
+        "-(" + "|".join([
+            'energy-gateway',
+            'energy-management',
+        ]) + ")-")
     
     # Group 2: No Read Client unified builds
     target.AppendModifier('unified-no-read-client', unified=True, unified_group='no-read-client').OnlyIfRe(
